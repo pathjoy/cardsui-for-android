@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import android.content.Context;
 import android.graphics.Color;
 import android.text.TextUtils;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -17,14 +16,16 @@ import com.fima.cardsui.StackAdapter;
 import com.fima.cardsui.SwipeDismissTouchListener;
 import com.fima.cardsui.SwipeDismissTouchListener.OnDismissCallback;
 import com.fima.cardsui.Utils;
+import com.nineoldandroids.animation.Animator;
+import com.nineoldandroids.animation.Animator.AnimatorListener;
 import com.nineoldandroids.animation.ObjectAnimator;
 
 public class CardStack extends AbstractCard {
-	private static final float _45F = 45f;
 	private static final String NINE_OLD_TRANSLATION_Y = "translationY";
 	private ArrayList<Card> cards;
 	private String title, stackTitleColor;
 	private int selectedCardIndex = -1;
+	private int selectedCardHeight = 0;
 
 	private StackAdapter mAdapter;
 	private int mPosition;
@@ -32,15 +33,16 @@ public class CardStack extends AbstractCard {
 	private CardStack mStack;
 
 	public CardStack() {
-		cards = new ArrayList<Card>();
-		mStack = this;
+		this(null);
 	}
 
 	public CardStack(String title) {
 		cards = new ArrayList<Card>();
 		mStack = this;
 
-		setTitle(title);
+		if (!TextUtils.isEmpty(title)) {
+			setTitle(title);
+		}
 	}
 
 	public ArrayList<Card> getCards() {
@@ -78,31 +80,28 @@ public class CardStack extends AbstractCard {
 			title.setVisibility(View.VISIBLE);
 		}
 
-		Card card;
-		View cardView;
+		int dpInPx45 = Utils.convertDpToPixelInt(context, 45);
 		for (int i = 0; i < cards.size(); i++) {
-			cardView = null;
-			int topPx = 0;
-			card = cards.get(i);
+			Card card = cards.get(i);
+			View cardView = null;
+			int topPx = dpInPx45 * i;
 
-			cardView = card.getView(context);
-			cardView.setOnClickListener(getClickListener(this, container, i));
-
-			if (i > 0) {
-				float dp = _45F * i;
-				topPx = Utils.convertDpToPixelInt(context, dp);
+			if (selectedCardIndex > -1 && i > selectedCardIndex) {
+				topPx += selectedCardHeight;
 			}
 
 			RelativeLayout.LayoutParams lp = new RelativeLayout.LayoutParams(
 					RelativeLayout.LayoutParams.MATCH_PARENT,
 					RelativeLayout.LayoutParams.WRAP_CONTENT);
 			lp.setMargins(0, topPx, 0, 0);
+
+			cardView = card.getView(context);
 			cardView.setLayoutParams(lp);
 
+			cardView.setOnClickListener(getClickListener(this, container, i));
 			if (swipable) {
 				cardView.setOnTouchListener(new SwipeDismissTouchListener(cardView,
 						card, new OnDismissCallback() {
-
 							@Override
 							public void onDismiss(View view, Object token) {
 								Card c = (Card) token;
@@ -114,7 +113,6 @@ public class CardStack extends AbstractCard {
 
 								// refresh();
 								mAdapter.notifyDataSetChanged();
-
 							}
 						}));
 			}
@@ -150,72 +148,103 @@ public class CardStack extends AbstractCard {
 		return new OnClickListener() {
 			@Override
 			public void onClick(View v) {
+				AnimatorListener al = new AnimatorListener() {
+					@Override
+					public void onAnimationEnd(Animator animation) {
+						mAdapter.notifyDataSetChanged();
+					}
+
+					@Override
+					public void onAnimationCancel(Animator animation) {
+						// TODO Auto-generated method stub
+
+					}
+
+					@Override
+					public void onAnimationRepeat(Animator arg0) {
+						// TODO Auto-generated method stub
+
+					}
+
+					@Override
+					public void onAnimationStart(Animator arg0) {
+						// TODO Auto-generated method stub
+
+					}
+				};
+
 				if (selectedCardIndex < 0) {
-					int indexHeight = container.getChildAt(index).getHeight()
+					selectedCardHeight = container.getChildAt(index).getHeight()
 							- convertDpToPixel(45);
+					selectedCardIndex = index;
 
 					for (int i = index + 1; i < container.getChildCount(); i++) {
-						ObjectAnimator anim = ObjectAnimator
-								.ofFloat(container.getChildAt(i), NINE_OLD_TRANSLATION_Y, 0,
-										indexHeight);
+						ObjectAnimator anim = ObjectAnimator.ofFloat(
+								container.getChildAt(i), NINE_OLD_TRANSLATION_Y, 0,
+								selectedCardHeight);
+						anim.addListener(al);
 						anim.start();
 					}
-
-					selectedCardIndex = index;
 				} else if (index == selectedCardIndex) {
-					int indexHeight = container.getChildAt(index).getHeight()
+					selectedCardHeight = container.getChildAt(index).getHeight()
 							- convertDpToPixel(45);
-
-					for (int i = index + 1; i < container.getChildCount(); i++) {
-						ObjectAnimator anim = ObjectAnimator
-								.ofFloat(container.getChildAt(i), NINE_OLD_TRANSLATION_Y,
-										indexHeight, 0);
-						anim.start();
-					}
-
 					selectedCardIndex = -1;
+
+					for (int i = index + 1; i < container.getChildCount(); i++) {
+						ObjectAnimator anim = ObjectAnimator.ofFloat(
+								container.getChildAt(i), NINE_OLD_TRANSLATION_Y, 0,
+								-selectedCardHeight);
+						anim.addListener(al);
+						anim.start();
+					}
 				} else if (index < selectedCardIndex) {
-					int oldIndexHeight = container.getChildAt(selectedCardIndex)
-							.getHeight() - convertDpToPixel(45);
-					int indexHeight = container.getChildAt(index).getHeight()
+					int oldIndex = selectedCardIndex;
+					int oldIndexHeight = container.getChildAt(oldIndex).getHeight()
 							- convertDpToPixel(45);
-
-					for (int i = index + 1; i <= selectedCardIndex; i++) {
-						ObjectAnimator anim = ObjectAnimator
-								.ofFloat(container.getChildAt(i), NINE_OLD_TRANSLATION_Y, 0,
-										indexHeight);
-						anim.start();
-					}
-
-					for (int i = selectedCardIndex + 1; i < container.getChildCount(); i++) {
-						ObjectAnimator anim = ObjectAnimator.ofFloat(
-								container.getChildAt(i), NINE_OLD_TRANSLATION_Y,
-								oldIndexHeight, indexHeight);
-						anim.start();
-					}
-
+					selectedCardHeight = container.getChildAt(index).getHeight()
+							- convertDpToPixel(45);
 					selectedCardIndex = index;
-				} else {
-					int oldIndexHeight = container.getChildAt(selectedCardIndex)
-							.getHeight() - convertDpToPixel(45);
-					int indexHeight = container.getChildAt(index).getHeight()
-							- convertDpToPixel(45);
 
-					for (int i = selectedCardIndex + 1; i <= index; i++) {
+					for (int i = index + 1; i <= oldIndex; i++) {
 						ObjectAnimator anim = ObjectAnimator.ofFloat(
-								container.getChildAt(i), NINE_OLD_TRANSLATION_Y,
-								oldIndexHeight, 0);
+								container.getChildAt(i), NINE_OLD_TRANSLATION_Y, 0,
+								selectedCardHeight);
+						anim.addListener(al);
+						anim.start();
+
+					}
+
+					for (int i = oldIndex + 1; i < container.getChildCount(); i++) {
+						ObjectAnimator anim = ObjectAnimator.ofFloat(
+								container.getChildAt(i), NINE_OLD_TRANSLATION_Y, oldIndexHeight
+										- selectedCardHeight, 0);
+						anim.addListener(al);
+						anim.start();
+
+					}
+				} else {
+					int oldIndex = selectedCardIndex;
+					int oldIndexHeight = container.getChildAt(oldIndex).getHeight()
+							- convertDpToPixel(45);
+					selectedCardHeight = container.getChildAt(index).getHeight()
+							- convertDpToPixel(45);
+					selectedCardIndex = index;
+
+					for (int i = oldIndex + 1; i <= index; i++) {
+						ObjectAnimator anim = ObjectAnimator.ofFloat(
+								container.getChildAt(i), NINE_OLD_TRANSLATION_Y, 0,
+								-selectedCardHeight);
+						anim.addListener(al);
 						anim.start();
 					}
 
 					for (int i = index + 1; i < container.getChildCount(); i++) {
 						ObjectAnimator anim = ObjectAnimator.ofFloat(
-								container.getChildAt(i), NINE_OLD_TRANSLATION_Y,
-								oldIndexHeight, indexHeight);
+								container.getChildAt(i), NINE_OLD_TRANSLATION_Y, 0,
+								selectedCardHeight - oldIndexHeight);
+						anim.addListener(al);
 						anim.start();
 					}
-
-					selectedCardIndex = index;
 				}
 			}
 		};
@@ -227,7 +256,6 @@ public class CardStack extends AbstractCard {
 
 	public void setAdapter(StackAdapter stackAdapter) {
 		mAdapter = stackAdapter;
-
 	}
 
 	public void setPosition(int position) {

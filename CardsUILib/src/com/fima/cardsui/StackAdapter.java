@@ -45,8 +45,6 @@ public class StackAdapter extends BaseAdapter {
 		stack.setAdapter(this);
 		stack.setPosition(position);
 
-		// TODO: caching is not working well
-
 		// if (convertView != null) {
 		// CardStack tagStack = (CardStack) convertView.getTag();
 		// ArrayList<Card> tagCards = tagStack.getCards();
