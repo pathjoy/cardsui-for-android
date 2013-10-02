@@ -19,3 +19,5 @@ classes
 obj
 
 .DS_Store
+
+*.classpath
